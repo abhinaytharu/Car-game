@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Car Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script>
+        // Scene, Camera, Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Road
+        const roadGeometry = new THREE.PlaneGeometry(10, 200);
+        const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
+        const road = new THREE.Mesh(roadGeometry, roadMaterial);
+        road.rotation.x = -Math.PI / 2;
+        scene.add(road);
+
+        // Obstacles
+        const obstacles = [];
+        function createObstacle() {
+            const obstacleGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set((Math.random() - 0.5) * 8, 0.25, -50);
+            obstacles.push(obstacle);
+            scene.add(obstacle);
+        }
+
+        // Generate obstacles periodically
+        setInterval(createObstacle, 2000);
+
+        // Camera Position
+        camera.position.set(0, 5, 10);
+        camera.lookAt(0, 0, 0);
+
+        // Movement Controls
+        const keys = { ArrowLeft: false, ArrowRight: false };
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // Load car model
+        const loader = new THREE.OBJLoader();
+        loader.load('bugatti.obj', function (object) {
+            const carModel = object;
+            carModel.scale.set(0.5, 0.5, 0.5);  // Adjust scale
+            carModel.position.set(0, 0.25, 0);  // Adjust position
+            scene.add(carModel);
+
+            // Remove the box geometry car
+            scene.remove(playerCar);
+
+            // Game Loop
+            let gameOver = false;
+            function animate() {
+                if (gameOver) return;
+
+                requestAnimationFrame(animate);
+
+                // Move Player Car
+                if (keys.ArrowLeft && carModel.position.x > -4.5) carModel.position.x -= 0.1;
+                if (keys.ArrowRight && carModel.position.x < 4.5) carModel.position.x += 0.1;
+
+                // Move Obstacles
+                obstacles.forEach((obstacle, index) => {
+                    obstacle.position.z += 0.1;
+
+                    // Check for collision
+                    if (obstacle.position.z > 0 && Math.abs(obstacle.position.x - carModel.position.x) < 1 && Math.abs(obstacle.position.z - carModel.position.z) < 1) {
+                        alert("Game Over!");
+                        gameOver = true;
+                    }
+
+                    // Remove obstacle if out of view
+                    if (obstacle.position.z > 10) {
+                        scene.remove(obstacle);
+                        obstacles.splice(index, 1);
+                    }
+                });
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        });
+    </script>
+</body>
+</html>

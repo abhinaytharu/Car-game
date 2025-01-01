@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Car Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        // Scene, Camera, Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 10, -10);
+        scene.add(directionalLight);
+
+        // Load Player Car Model (local file)
+        let playerCar;
+        const loader = new THREE.GLTFLoader();
+        loader.load('./Flamingo.glb', function (gltf) {
+            playerCar = gltf.scene;
+            playerCar.scale.set(0.025, 0.025, 0.025);
+            playerCar.position.set(0, 0.25, 0);
+            scene.add(playerCar);
+        });
+
+        // Road with Scrolling Texture
+        const roadGeometry = new THREE.PlaneGeometry(10, 200);
+        const roadTexture = new THREE.TextureLoader().load('./road2.jpg');
+        roadTexture.wrapS = THREE.RepeatWrapping;
+        roadTexture.wrapT = THREE.RepeatWrapping;
+        roadTexture.repeat.set(1, 20); // Repeat road texture along its length
+        const roadMaterial = new THREE.MeshStandardMaterial({ map: roadTexture });
+        const road = new THREE.Mesh(roadGeometry, roadMaterial);
+        road.rotation.x = -Math.PI / 2;
+        road.position.z = -100; // Adjust position to match road length
+        scene.add(road);
+
+        // Obstacles
+        const obstacles = [];
+        function createObstacle() {
+            const obstacleGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set((Math.random() - 0.5) * 8, 0.25, -50);
+            obstacles.push(obstacle);
+            scene.add(obstacle);
+        }
+
+        // Generate obstacles periodically
+        setInterval(createObstacle, 2000);
+
+        // Third-Person Camera
+        function updateCameraPosition() {
+            if (playerCar) {
+                camera.position.set(playerCar.position.x, playerCar.position.y + 2, playerCar.position.z + 5);
+                camera.lookAt(playerCar.position.x, playerCar.position.y, playerCar.position.z);
+            }
+        }
+
+        // Movement Controls
+        const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // Score and Timer
+        let score = 0;
+        let gameOver = false;
+        const scoreDisplay = document.createElement('div');
+        scoreDisplay.style.position = 'absolute';
+        scoreDisplay.style.top = '10px';
+        scoreDisplay.style.left = '10px';
+        scoreDisplay.style.color = 'white';
+        scoreDisplay.style.fontSize = '20px';
+        document.body.appendChild(scoreDisplay);
+
+        function updateScore() {
+            score += 1;
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+        setInterval(updateScore, 100);
+
+        // Game Loop
+        function animate() {
+            if (gameOver) return;
+
+            requestAnimationFrame(animate);
+
+            // Move Player Car
+            if (playerCar) {
+                if (keys.ArrowLeft && playerCar.position.x > -4.5) playerCar.position.x -= 0.1;
+                if (keys.ArrowRight && playerCar.position.x < 4.5) playerCar.position.x += 0.1;
+                if (keys.ArrowUp) playerCar.position.z -= 0.2; // Move forward
+                if (keys.ArrowDown && playerCar.position.z < 0) playerCar.position.z += 0.2; // Move backward
+            }
+
+            // Move Obstacles
+            obstacles.forEach((obstacle, index) => {
+                obstacle.position.z += 0.2;
+
+                // Check for collision
+                if (playerCar && obstacle.position.z > 0 && Math.abs(obstacle.position.x - playerCar.position.x) < 1 && Math.abs(obstacle.position.z - playerCar.position.z) < 1) {
+                    alert("Game Over! Your Score: " + score);
+                    gameOver = true;
+                }
+
+                // Remove obstacle if out of view
+                if (obstacle.position.z > 10) {
+                    scene.remove(obstacle);
+                    obstacles.splice(index, 1);
+                }
+            });
+
+            // Scroll the road texture
+            roadTexture.offset.y += 0.05; // Adjust speed by changing this value
+
+            // Update Camera
+            updateCameraPosition();
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Background Music (local file)
+        const audio = new Audio('./sound.mp3'); // Play sound.mp3 from the same directory
+        audio.loop = true;
+        audio.play();
+    </script>
+</body>
+</html>
